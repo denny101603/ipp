@@ -1,2 +1,2 @@
 .IPPcode19
-bla MOVE atd
+MOVE GF@counter
