@@ -25,7 +25,7 @@ function checkVar($line, $xml) //zkontroluje, jestli je v line var a vrati zbyte
     }
 }
 
-function checkSymb($line, $xml)
+function checkSym($line, $xml)
 {
     $patternSym = "/^\s+(string|nil|int|bool)@([^\s#]*)(.*\n)/";
     if(preg_match($patternSym, $line, $matches))
@@ -38,6 +38,22 @@ function checkSymb($line, $xml)
     {
         echo "sym se nenasel, zkusim var\n";
         return checkVar($line, $xml);
+    }
+}
+
+function checkLabel($line, $xml)
+{
+    $patternLabel = "/^\s+([\_\-$&%*!?a-zA-Z][\_\-$&%*!?a-zA-Z0-9]*)(.*\n)/"; #^[LTG]F@([\_\-$&%*!?a-zA-Z][\_\-$&%*!?a-zA-Z0-9]*)^";
+    if(preg_match($patternLabel, $line, $matches))
+    {
+        echo "nalezen label: ".$matches[1]."\n";
+        $xml->addChild('arg');
+        return $matches[2];
+    }
+    else
+    {
+        echo "label se nenasel\n";
+        return null;
     }
 }
 
@@ -97,7 +113,7 @@ while($line = fgets(STDIN))
                 else
                 {
                     echo $rest."\n";
-                    $rest = checkSymb($rest, $xmlOut);
+                    $rest = checkSym($rest, $xmlOut);
                 }
                 if(checkEOL($rest))
                     echo "konec OK\n";
