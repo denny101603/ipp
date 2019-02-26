@@ -1,2 +1,5 @@
-.IPPcode19
-MOVE GF@counter
+.IPPcode19      #fgsdgsdfg
+MOVE GF@counter string@
+MOVE GF@counter string@dfs
+
+

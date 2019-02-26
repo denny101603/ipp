@@ -3,31 +3,118 @@
  * @param $line
  * @param $xml
  */
-function checkVar($line, $xml)
+
+define("HEADER", 21);
+define("WRONG_OP", 22);
+define("OTHER", 23);
+define("MESS_OTHER", "Chyba-ostatni\n");
+
+function checkVar($line, $xml) //zkontroluje, jestli je v line var a vrati zbytek za nim
 {
-    $patternVar = "^[LTG]F@([\_\-$&%*!?a-zA-Z][\_\-$&%*!?a-zA-Z0-9]*)^";
+    $patternVar = "/^\s+[LTG]F@([\_\-$&%*!?a-zA-Z][\_\-$&%*!?a-zA-Z0-9]*)(.*\n)/"; #^[LTG]F@([\_\-$&%*!?a-zA-Z][\_\-$&%*!?a-zA-Z0-9]*)^";
     if(preg_match($patternVar, $line, $matches))
     {
-        print("nalezeno var: ".$matches[1]."\n");
+        echo "nalezeno var: ".$matches[1]."\n";
         $xml->addChild('arg');
+        return $matches[2];
     }
     else
-        print("var se nenasel\n");
+    {
+        echo "var se nenasel\n";
+        return null;
+    }
 }
 
-
-print("start");
-
-$line = fgets(STDIN);
-if(!preg_match('/^\.ippcode19\r?\n/i', $line))
+function checkSymb($line, $xml)
 {
-    fprintf(STDERR, "Spatna hlavicka ve zdrojovem kodu\n");
-    exit(21);
+    $patternSym = "/^\s+(string|nil|int|bool)@([^\s#]*)(.*\n)/";
+    if(preg_match($patternSym, $line, $matches))
+    {
+        echo "nalezeno sym: ".$matches[1]."\n";
+        $xml->addChild('arg');
+        return $matches[3];
+    }
+    else
+    {
+        echo "sym se nenasel, zkusim var\n";
+        return checkVar($line, $xml);
+    }
 }
+
+function checkEOL($line)
+{
+    if(preg_match("/^\s*(#.*)?\r?\n/", $line))
+        return true;
+    return false;
+}
+
+function checkHeader()
+{
+    $line = fgets(STDIN);
+    if(!preg_match('/^\.ippcode19(\s*#.*)?\r?\n/i', $line))
+    {
+        fprintf(STDERR, "Spatna hlavicka ve zdrojovem kodu\n");
+        exit(HEADER);
+    }
+}
+
+echo "start\n";
+
+checkHeader();
 $xmlOut = new SimpleXMLElement('<?xml version="1.0" encoding="UTF-8"?><program language="IPPcode19"/>');
 
-$line = fgets(STDIN);
-if(preg_match("/^\s*MOVE\s*(.*)/", $line, $matches))
+while($line = fgets(STDIN))
+{
+    $regex = preg_match("/^\s*([A-Z1-9]+)(.*\n)/", $line, $matches);
+    if(!$regex) //jeste to muze byt komentar nebo prazdny radek
+    {
+        if(preg_match("/^\s*#.*\r?\n/", $line)) #je to komentar
+        {
+            continue;
+        }
+        elseif(preg_match("/^\s*\r?\n/", $line)) #je to prazdny radek
+        {
+            continue;
+        }
+        else
+        {
+            fprintf(STDERR, MESS_OTHER);
+            exit(OTHER);
+        }
+    }
+    else
+    {
+        switch ($matches[1])
+        {
+            case "MOVE":
+
+                $rest = checkVar($matches[2], $xmlOut);
+                if($rest === null)
+                {
+                    echo "rest je null -> neni to var\n";
+                    exit(OTHER);
+                }
+                else
+                {
+                    echo $rest."\n";
+                    $rest = checkSymb($rest, $xmlOut);
+                }
+                if(checkEOL($rest))
+                    echo "konec OK\n";
+                else
+                {
+                    echo "spatne konec\n";
+                    fprintf(STDERR, MESS_OTHER);
+                    exit(OTHER);
+                }
+                break;
+        }
+    }
+}
+
+
+/*
+if()
 {
     echo "je to MOVE\n";
     checkVar($matches[1], $xmlOut);
@@ -130,7 +217,7 @@ else
 {
 
 }
-
+*/
 
 
 
