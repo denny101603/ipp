@@ -1,5 +1,6 @@
-.IPPcode19      #fgsdgsdfg
+.IPPcode19      #"C:\xampp\php\php.exe" parse.php <input.txt
 MOVE GF@counter string@
 MOVE GF@counter string@dfs
 
-
+POPS GF@counter
+JUMP while
