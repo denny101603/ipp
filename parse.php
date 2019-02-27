@@ -74,8 +74,8 @@ function checkType($line, $xml, $cnt)
     }
     else
     {
-        echo "sym se nenasel, zkusim var\n";
-        return checkVar($line, $xml, $cnt);
+        echo "type se nenasel\n";
+        return null;
     }
 }
 
