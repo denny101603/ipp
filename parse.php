@@ -222,6 +222,33 @@ while($line = fgets(STDIN))
                 fprintf(STDERR, MESS_OTHER);
                 exit(OTHER);
                 break;
+            case "JUMPIFEQ":
+            case "JUMPIFNEQ": #35
+                $rest = checkLabel($matches[2], $xmlOp, 1);
+                if($rest !== null)
+                {
+                    $rest = checkSym($rest, $xmlOp, 2);
+                    if($rest !== null)
+                    {
+                        $rest = checkSym($rest, $xmlOp, 3);
+                        if(checkEOL($rest))
+                            break;
+                    }
+                }
+                fprintf(STDERR, MESS_OTHER);
+                exit(OTHER);
+                break;
+            case "READ":
+                $rest = checkVar($matches[2], $xmlOp, 1);
+                if($rest !== null)
+                {
+                    $rest = checkType($rest, $xmlOp, 2);
+                    if(checkEOL($rest))
+                        break;
+                }
+                fprintf(STDERR, MESS_OTHER);
+                exit(OTHER);
+                break;
 
         }
     }

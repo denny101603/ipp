@@ -1,6 +1,12 @@
 .IPPcode19      #"C:\xampp\php\php.exe" parse.php <input.txt
-MOVE GF@counter string@
-MOVE GF@counter string@dfs
-
-POPS GF@counter
+DEFVAR GF@counter
+MOVE GF@counter string@ # Inicializace prom ěnné na prá zdný řetě zec
+# Jednoduch á iterace , dokud nebude spln ěna zadaná podm í nka
+LABEL while
+JUMPIFEQ end GF@counter string@aaa
+WRITE string@counter>ob<sa&huje\032
+WRITE GF@counter
+WRITE string@\062
+CONCAT GF@counter GF@counter string@a
 JUMP while
+LABEL end
