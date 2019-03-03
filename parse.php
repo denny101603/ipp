@@ -20,19 +20,17 @@ define("MESS_OTHER", "Chyba-ostatni\n");
  * @param $cnt int poradi argumentu (promenne) v instrukci
  * @return null pokud je promenna nenalezena, jinak zbytek radku za ni
  */
-function checkVar($line, $xml, $cnt) //zkontroluje, jestli je v line var a vrati zbytek za nim
+function checkVar($line, $xml, $cnt)
 {
     $patternVar = "/^\s+([LTG]F@[\_\-$&%*!?a-zA-Z][\_\-$&%*!?a-zA-Z0-9]*)(.*\n)/";
     if(preg_match($patternVar, $line, $matches))
     {
-        #echo "nalezeno var: ".$matches[1]."\n";
         $child = $xml->addChild("arg".$cnt, $matches[1]);
         $child->addAttribute("type", "var");
         return $matches[2];
     }
     else
     {
-        #echo "var se nenasel\n";
         return null;
     }
 }
@@ -49,15 +47,13 @@ function checkSym($line, $xml, $cnt)
     $patternSym = "/^\s+(string|nil|int|bool)@([^\s#]*)(.*\n)/";
     if(preg_match($patternSym, $line, $matches))
     {
-        #echo "nalezeno sym: ".$matches[1]."\n";
-        $xmlFriedly = str_replace("&", "&amp;", $matches[2]);
-        $child = $xml->addChild("arg".$cnt, $xmlFriedly);
+        $xmlFriendly = str_replace("&", "&amp;", $matches[2]); #nahrada & za escape sekvenci pro xml
+        $child = $xml->addChild("arg".$cnt, $xmlFriendly);
         $child->addAttribute("type", $matches[1]);
         return $matches[3];
     }
     else
     {
-        #echo "sym se nenasel, zkusim var\n";
         return checkVar($line, $xml, $cnt);
     }
 }
@@ -70,17 +66,15 @@ function checkSym($line, $xml, $cnt)
  */
 function checkLabel($line, $xml, $cnt)
 {
-    $patternLabel = "/^\s+([\_\-$&%*!?a-zA-Z][\_\-$&%*!?a-zA-Z0-9]*)(.*\n)/"; #^[LTG]F@([\_\-$&%*!?a-zA-Z][\_\-$&%*!?a-zA-Z0-9]*)^";
+    $patternLabel = "/^\s+([\_\-$&%*!?a-zA-Z][\_\-$&%*!?a-zA-Z0-9]*)(.*\n)/";
     if(preg_match($patternLabel, $line, $matches))
     {
         $child = $xml->addChild("arg".$cnt, $matches[1]);
         $child->addAttribute("type", "label");
-        #echo "nalezen label: ".$matches[1]."\n";
         return $matches[2];
     }
     else
     {
-        #echo "label se nenasel\n";
         return null;
     }
 }
@@ -97,14 +91,12 @@ function checkType($line, $xml, $cnt)
     $patternSym = "/^\s+(string|int|bool)(.*\n)/";
     if(preg_match($patternSym, $line, $matches))
     {
-        #echo "nalezen type: ".$matches[1]."\n";
         $child = $xml->addChild("arg".$cnt, $matches[1]);
         $child->addAttribute("type", "type");
         return $matches[2];
     }
     else
     {
-        #echo "type se nenasel\n";
         return null;
     }
 }
@@ -156,12 +148,12 @@ function checkArgs()
         exit(WRONG_ARGS);
 }
 
-#echo "start\n";
-
+#zacatek hlavniho tela
 checkArgs();
 checkHeader();
 $xmlOut = new SimpleXMLElement('<?xml version="1.0" encoding="UTF-8"?><program language="IPPcode19"/>');
 $counter = 1; #pocitadlo instrukci
+
 while($line = fgets(STDIN))
 {
     if($line[strlen($line)-1] != "\n") //pokud je nacten radek neukonceny znakem \n, pridam ho tam (osetreni posledniho radku souboru)
@@ -170,15 +162,10 @@ while($line = fgets(STDIN))
     $regex = preg_match("/^\s*([A-Z1-9]+)(.*\n)/", $line, $matches); #vyhledani opcode
     if(!$regex) //jeste to muze byt komentar nebo prazdny radek
     {
-        #echo "vstupni regex spatny:".$line;
         if(preg_match("/^\s*#.*\r?\n/", $line)) #je to komentar
-        {
             continue;
-        }
         elseif(preg_match("/^\s*\r?\n/", $line)) #je to prazdny radek
-        {
             continue;
-        }
         else
         {
             fprintf(STDERR, MESS_OTHER);
@@ -190,6 +177,7 @@ while($line = fgets(STDIN))
         $xmlOp = $xmlOut->addChild("instruction");
         $xmlOp->addAttribute("order", $counter++);
         $xmlOp->addAttribute("opcode", $matches[1]);
+
         switch ($matches[1])
         {
             case "MOVE": #var symb
@@ -315,11 +303,7 @@ while($line = fgets(STDIN))
     }
 }
 
-/*
 print($xmlOut->asXML());
-$xmlOut->saveXML("parse_out.xml");
-*/
-print(str_replace("><",">\n<", $xmlOut->asXML()));
 
 exit(0);
 ?>
