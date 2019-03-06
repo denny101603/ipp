@@ -1,5 +1,5 @@
 .IPPcode19      #"C:\xampp\php\php.exe" parse.php <input.txt
-DEFVAR GF@counter
+DEFVaR GF@counter
 MOVE GF@counter string@ # Inicializace prom ěnné na prá zdný řetě zec
 # Jednoduch á iterace , dokud nebude spln ěna zadaná podm í nka
 LABEL while
