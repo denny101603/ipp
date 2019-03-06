@@ -138,7 +138,7 @@ function checkArgs()
     {
         if($argv[1] == "--help")
         {
-            printf("Skript typu filtr nacte ze standardniho vstupu zdrojovy kod v IPPcode19, zkontroluje lexikalni a syntaktickou spravnost kodu a vypise na standardni vystup XML reprezentaci programu.");
+            printf("Skript typu filtr nacte ze standardniho vstupu zdrojovy kod v IPPcode19, zkontroluje lexikalni a syntaktickou spravnost kodu a vypise na standardni vystup XML reprezentaci programu.\n");
             exit(SUCCESS);
         }
         else
@@ -159,7 +159,7 @@ while($line = fgets(STDIN))
     if($line[strlen($line)-1] != "\n") //pokud je nacten radek neukonceny znakem \n, pridam ho tam (osetreni posledniho radku souboru)
         $line .="\n";
 
-    $regex = preg_match("/^\s*([A-Z1-9]+)(.*\n)/", $line, $matches); #vyhledani opcode
+    $regex = preg_match("/^\s*([A-Za-z1-9]+)(.*\n)/", $line, $matches); #vyhledani opcode
     if(!$regex) //jeste to muze byt komentar nebo prazdny radek
     {
         if(preg_match("/^\s*#.*\r?\n/", $line)) #je to komentar
@@ -178,9 +178,10 @@ while($line = fgets(STDIN))
         $xmlOp->addAttribute("order", $counter++);
         $xmlOp->addAttribute("opcode", $matches[1]);
 
-        switch ($matches[1])
+        switch (strtoupper($matches[1]))
         {
-            case "MOVE": #var symb
+            case "MOVE":
+            case "NOT": #var symb
                 $rest = checkVar($matches[2], $xmlOp, 1);
                 $rest = checkSym($rest, $xmlOp, 2);
                 if($rest !== null)
@@ -239,7 +240,6 @@ while($line = fgets(STDIN))
             case "EQ":
             case "AND":
             case "OR":
-            case "NOT":
             case "STRI2INT":
             case "CONCAT":
             case "GETCHAR":
@@ -298,7 +298,8 @@ while($line = fgets(STDIN))
                 fprintf(STDERR, MESS_OTHER);
                 exit(OTHER);
                 break;
-
+            default:
+                exit(WRONG_OP);
         }
     }
 }
