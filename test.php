@@ -40,46 +40,69 @@ if(sizeof($srcFiles) == 0)
 generateEmptyFiles($srcFiles);
 
 foreach ($srcFiles as $key => $srcFile) {
+    $rc_value = file_get_contents(changeExtension($srcFile, "rc"));
+    if($rc_value === false)
+        exit(OPEN_INPUT_FILE_FAIL);
     if(!$params[INT_ONLY])
     {
-        $tempFile = generateUniqFileName(getDirectoryFromSrcFile($srcFile));
-        $rc_value = file_get_contents(changeExtension($srcFile, "rc"));
-        if($rc_value === false)
-            exit(OPEN_INPUT_FILE_FAIL);
+        $tempFileParseOut = generateUniqFileName($params[DIRECTORY]);
 
-        $return_value = startParse($params, $srcFile, $tempFile);
+        $return_value = startParse($params, $srcFile, $tempFileParseOut);
         if($params[PARSE_ONLY])
         {
-            if(compareXML(changeExtension($srcFile, "out"), $tempFile))
+            if(compareXML(changeExtension($srcFile, "out"), $tempFileParseOut))
                 echo "vystup testu xml ".$srcFile." je ok\n";
             else
                 echo "vystup testu xml ".$srcFile." neni ok\n";
-            unlink($tempFile);
+            unlink($tempFileParseOut);
             if($rc_value == $return_value)
                 echo "navratova hodnoza testu ".$srcFile." je ok\n";
             else
                 echo "navratova hodnoza testu ".$srcFile."  neni ok\n";
         }
-        if($return_value != 0) //chyba v parseru
+        else
         {
-            unlink($tempFile);
-            if($return_value == $rc_value)
+            if($return_value != 0) //chyba v parseru
+            {
+                unlink($tempFileParseOut);
+                if ($return_value == $rc_value)
+                    echo "navratova hodnoza testu " . $srcFile . " je ok\n";
+                else
+                    echo "navratova hodnoza testu " . $srcFile . " neni ok\n";
+                break;
+            }
+            $tempFileIntOut = generateUniqFileName($params[DIRECTORY]);
+            $return_value = startInterpret($params, $tempFileParseOut, changeExtension($srcFile, "in"), $tempFileIntOut);
+            unlink($tempFileParseOut);
+            if(compareDiff(changeExtension($srcFile, "out"), $tempFileIntOut))
+                echo "vystup testu ".$srcFile." je ok\n";
+            else
+                echo "vystup testu ".$srcFile." je BAD!!\n";
+            unlink($tempFileIntOut);
+            if($rc_value == $return_value)
                 echo "navratova hodnoza testu ".$srcFile." je ok\n";
             else
-                echo "navratova hodnoza testu ".$srcFile." neni ok\n";
-
+                echo "navratova hodnoza testu ".$srcFile." je BAD!!\n";
         }
+    }
+    else
+    {
+        $tempFileIntOut = generateUniqFileName($params[DIRECTORY]);
+        $return_value = startInterpret($params, $srcFile, changeExtension($srcFile, "in"), $tempFileIntOut);
+        if(compareDiff(changeExtension($srcFile, "out"), $tempFileIntOut))
+            echo "vystup testu ".$srcFile." je ok\n";
+        else
+            echo "vystup testu ".$srcFile." je BAD!!\n";
+        unlink($tempFileIntOut);
+        if($rc_value == $return_value)
+            echo "navratova hodnoza testu ".$srcFile." je ok\n";
+        else
+            echo "navratova hodnoza testu ".$srcFile." je BAD!!\n";
     }
 }
 
 exit(SUCCESS);
-//generateUniqFileName($params[DIRECTORY]);
-//compareXML("out1", "out11");
 
-/*
-$command = "diff out1 out2";
-exec($command, $output);
-*/
 
 /**
  * @param $oldPath string cesta k souboru
@@ -91,14 +114,29 @@ function changeExtension($oldPath, $newExt)
     return preg_replace("/(.*\.)src/", "$1".$newExt, $oldPath); //ziskani nazvu odpovidajiciho souboru *.newExt
 }
 
-/**
+/*
  * @param $filename string musi byt *.src soubor vcetne cesty
  * @return string slozku ve ktere se nachazi filename
  */
+/*
 function getDirectoryFromSrcFile($filename)
 {
     preg_match("/(.+\/).+\.src/", $filename, $matches);
     return $matches[1];
+}*/
+
+/**
+ * @param $params array: parametry programu - kvuli ziskani nazvu parseru
+ * @param $sourceFile string zdrojovy program v xml pro interpret
+ * @param $inputFile string jako vstup pro interpret
+ * @param $destFile string kam se presmeruje stdout z interpretu
+ * @return int navratova hodnota interpretu
+ */
+function startInterpret($params, $sourceFile, $inputFile, $destFile)
+{
+    $command = "python3.6 \"".$params[INT_FILE]."\" --source=\"".$sourceFile."\" --input=\"".$inputFile."\" >\"".$destFile."\"";
+    exec($command, $output, $return_var);
+    return $return_var;
 }
 
 /**
@@ -106,11 +144,11 @@ function getDirectoryFromSrcFile($filename)
  * @param $params array: parametry programu - kvuli ziskani nazvu parseru
  * @param $srcFile string ktery zdrojovy soubor presmerovat na vstup parseru
  * @param $destFile string kam se presmeruje stdout z parseru
- * @return string navratova hodnota parseru
+ * @return int navratova hodnota parseru
  */
 function startParse($params, $srcFile, $destFile)
 {
-    $command = "php7.3 ".$params[PARSE_FILE]." <".$srcFile." >".$destFile;
+    $command = "php7.3 \"".$params[PARSE_FILE]."\" <\"".$srcFile."\" >\"".$destFile."\"";
     exec($command, $output, $return_var);
     return $return_var;
 }
@@ -193,7 +231,19 @@ function compareXML($filename1, $filename2)
             return false;
         }
     } //todo když se neco posere a nebudou 3 polozky v poli? - reseni navratovy kod
+    else return false;
+}
 
+/**
+ * @param $filename1 string prvni soubor pro porovnani
+ * @param $filename2 string druhy soubor pro porovnani
+ * @return bool
+ */
+function compareDiff($filename1, $filename2)
+{
+    $command = "diff \"".$filename1."\" \"".$filename2."\"";
+    exec($command, $output, $return_var);
+    return $return_var == 0;
 }
 
 /**
@@ -264,7 +314,5 @@ function set_params($options)
     if(array_key_exists(INT_ONLY, $options))
         $params[INT_ONLY] = true;
 }
-
-
 ?>
 
