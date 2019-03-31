@@ -3,7 +3,6 @@ import sys
 import getopt
 import xml.etree.ElementTree as ET
 
-print("start")
 
 class OpCodes:
     MOVE = "MOVE"
@@ -45,8 +44,9 @@ class OpCodes:
 
 
 class RetCodes:
+    success = 0
     wrongArgs = 10
-
+    FileOpeningError = 11
     wrongXMLformat = 31
     otherErrorInXML = 32
     seman = 52
@@ -57,6 +57,7 @@ class RetCodes:
     wrongOpValue = 57
     wrongString = 58
     messageFrame = "Pokus o pristup k nedefinovanemu ramci (temporary frame neexistuje)"
+    messageWrongOps = "Pokus o pristup k nedefinovanemu ramci (temporary frame neexistuje)"
 
 
 class ReturnException(Exception):
@@ -199,6 +200,13 @@ class Program:
     def AddInstruction(self, instruction):
         self.instructions.append(instruction)
 
+    def GetLabel(self, name):
+        for instruction in self.instructions:
+            if instruction.opCodeType == OpCodes.LABEL:
+                if instruction.args[0].value == name:
+                    return instruction
+        raise ReturnException("Neexistujici label!", RetCodes.seman) #todo predelat na statickou semantickou kontrolu
+
 
 class XMLReader:
     def __init__(self, file):
@@ -308,19 +316,52 @@ class Converter:
         else:
             return (argument.value, argument.type)
 
+class CheckArgs:
+    def __init__(self):
+        self.sourceArg = None
+        self.inputArg = None
 
+    def Check(self):
+        try:
+            opts, args = getopt.getopt(sys.argv[1:], "", ["help", "source=", "input="])
+        except getopt.GetoptError:
+            exit(RetCodes.wrongArgs)
+
+        for opt, arg in opts:
+            if opt == "--help":
+                if len(opts) != 1:
+                    exit(RetCodes.wrongArgs)
+                print("Program načte XML reprezentaci programu ze zadaného souboru a tento program s využitím standardního vstupu a výstupu interpretuje.")
+                exit(RetCodes.success)
+            elif opt == "--source":
+                self.sourceArg = arg
+            elif opt == "--input":
+                self.inputArg = arg
+            else:
+                exit(RetCodes.wrongArgs)
+
+        if self.sourceArg is None and self.inputArg is None:
+            exit(RetCodes.wrongArgs)
+        elif self.sourceArg is None:
+            self.sourceArg = sys.stdin
+        elif self.inputArg is None:
+            self.inputArg = sys.stdin
+
+
+checker = CheckArgs()
+checker.Check()
 try:
-    opts, args = getopt.getopt(sys.argv[1:], ["help", "source", "input"])
-except getopt.GetoptError:
-    exit()
+    program = XMLReader(checker.sourceArg).GetProgram()
+except ReturnException as e:
+    exit(e.retCode)
 
-
-
-program = XMLReader("xml.src").GetProgram()
 stack = Stack()
+callStack = [] #todo udelat pro to nejakou tridu osetrujici prazdny pop...
 frames = Frames()
 
-for instruction in program.instructions:
+instructionCnt = 0
+while instructionCnt < len(program.instructions):
+    instruction = program.instructions[instructionCnt]
     sys.stdout.flush() #todo smazat
     if instruction.opCodeType == OpCodes.PUSHS:
         stack.Push(instruction.args[0].value, instruction.args[0].type)
@@ -340,7 +381,6 @@ for instruction in program.instructions:
                 print(int(tupleValueType[0]), end='')
             else:
                 print(str(tupleValueType[0]), end='')
-
         printSymbol(Converter.GetValueAndType(instruction.args[0]))
 
     elif instruction.opCodeType == OpCodes.INT2CHAR:
@@ -350,6 +390,114 @@ for instruction in program.instructions:
         var = frames.FindVar(instruction.args[0].name, instruction.args[0].frame)
         var.type = "string"
         var.value = chr(int(valueAndType[0]))  #todo dodelat chybu 58
+
+    elif instruction.opCodeType == OpCodes.MOVE:
+        var = frames.FindVar(instruction.args[0].name, instruction.args[0].frame)
+        var.value, var.type = Converter.GetValueAndType(instruction.args[1])
+
+    elif instruction.opCodeType == OpCodes.CREATEFRAME:
+        frames.CreateFrame()
+
+    elif instruction.opCodeType == OpCodes.PUSHFRAME:
+        frames.PushFrame()
+
+    elif instruction.opCodeType == OpCodes.POPFRAME:
+        frames.PopFrame()
+
+    elif instruction.opCodeType == OpCodes.CALL: #todo poresit nejakou pripravu ramce or not?
+        callStack.append(instructionCnt)
+        instructionCnt = program.instructions.index(program.GetLabel(instruction.args[0].value))
+
+    elif instruction.opCodeType == OpCodes.RETURN: #todo dodealt nejaky uklid LF ot not?
+        instructionCnt = callStack.pop()
+
+    elif instruction.opCodeType == OpCodes.ADD:
+        var = frames.FindVar(instruction.args[0].name, instruction.args[0].frame)
+        var.value, var.type = Converter.GetValueAndType(instruction.args[1])
+        sym2Value, sym2Type = Converter.GetValueAndType(instruction.args[2])
+        if not (var.GetType() == "int" and sym2Type == "int"): #aspon 1 operand neni int:
+            raise ReturnException(RetCodes.messageWrongOps, RetCodes.wrongOps)
+        var.value = int(sym2Value) + int(var.GetValue())
+
+    elif instruction.opCodeType == OpCodes.SUB:
+        var = frames.FindVar(instruction.args[0].name, instruction.args[0].frame)
+        var.value, var.type = Converter.GetValueAndType(instruction.args[1])
+        sym2Value, sym2Type = Converter.GetValueAndType(instruction.args[2])
+        if not (var.GetType() == "int" and sym2Type == "int"): #aspon 1 operand neni int:
+            raise ReturnException(RetCodes.messageWrongOps, RetCodes.wrongOps)
+        var.value = int(var.GetValue()) - int(sym2Value)
+
+    elif instruction.opCodeType == OpCodes.MUL:
+        var = frames.FindVar(instruction.args[0].name, instruction.args[0].frame)
+        var.value, var.type = Converter.GetValueAndType(instruction.args[1])
+        sym2Value, sym2Type = Converter.GetValueAndType(instruction.args[2])
+        if not (var.GetType() == "int" and sym2Type == "int"):  # aspon 1 operand neni int:
+            raise ReturnException(RetCodes.messageWrongOps, RetCodes.wrongOps)
+        var.value = int(sym2Value) * int(var.GetValue())
+
+    elif instruction.opCodeType == OpCodes.IDIV:
+        var = frames.FindVar(instruction.args[0].name, instruction.args[0].frame)
+        var.value, var.type = Converter.GetValueAndType(instruction.args[1])
+        sym2Value, sym2Type = Converter.GetValueAndType(instruction.args[2])
+        if not (var.GetType() == "int" and sym2Type == "int"):  # aspon 1 operand neni int:
+            raise ReturnException(RetCodes.messageWrongOps, RetCodes.wrongOps)
+        var.value = int(var.GetValue()) + int(sym2Value)
+
+    elif instruction.opCodeType in [OpCodes.LT, OpCodes.GT]:
+        var = frames.FindVar(instruction.args[0].name, instruction.args[0].frame)
+        sym1Value, sym1Type = Converter.GetValueAndType(instruction.args[1])
+        sym2Value, sym2Type = Converter.GetValueAndType(instruction.args[2])
+        if sym1Type != sym2Type or sym1Type not in ["int", "string", "bool"]:
+            raise ReturnException(RetCodes.messageWrongOps, RetCodes.wrongOps)
+        var.type = "bool"
+        if instruction.opCodeType == OpCodes.LT:
+            if sym1Type == "int":
+                var.value = "true" if int(sym1Value) < int(sym2Value) else "false"
+            elif sym1Type == "bool":
+                var.value = "true" if sym1Value == "false" and sym2Value == "true" else "false"
+            else:
+                var.value = "true" if str(sym1Value) < str(sym2Value) else "false"
+        else:
+            if sym1Type == "int":
+                var.value = "true" if int(sym1Value) > int(sym2Value) else "false"
+            elif sym1Type == "bool":
+                var.value = "true" if sym1Value == "true" and sym2Value == "false" else "false"
+            else:
+                var.value = "true" if str(sym1Value) > str(sym2Value) else "false"
+
+    elif instruction.opCodeType == OpCodes.EQ:
+        var = frames.FindVar(instruction.args[0].name, instruction.args[0].frame)
+        sym1Value, sym1Type = Converter.GetValueAndType(instruction.args[1])
+        sym2Value, sym2Type = Converter.GetValueAndType(instruction.args[2])
+        if sym1Type != sym2Type or sym1Type not in ["int", "string", "bool", "nil"]:
+            raise ReturnException(RetCodes.messageWrongOps, RetCodes.wrongOps)
+        var.type = "bool"
+        if sym1Type == "int":
+            var.value = "true" if int(sym1Value) == int(sym2Value) else "false"
+        else:
+            var.value = "true" if str(sym1Value) == str(sym2Value) else "false"
+
+    elif instruction.opCodeType in [OpCodes.AND, OpCodes.OR]:
+        var = frames.FindVar(instruction.args[0].name, instruction.args[0].frame)
+        sym1Value, sym1Type = Converter.GetValueAndType(instruction.args[1])
+        sym2Value, sym2Type = Converter.GetValueAndType(instruction.args[2])
+        if sym1Type != sym2Type or sym1Type != "bool":
+            raise ReturnException(RetCodes.messageWrongOps, RetCodes.wrongOps)
+        var.type = "bool"
+        if instruction.opCodeType == OpCodes.AND:
+            var.value = "true" if str(sym1Value) == "true" and str(sym2Value) == "true" else "false"
+        else:
+            var.value = "false" if str(sym1Value) == "false" and str(sym2Value) == "false" else "true"
+
+    elif instruction.opCodeType == OpCodes.NOT:
+        var = frames.FindVar(instruction.args[0].name, instruction.args[0].frame)
+        sym1Value, sym1Type = Converter.GetValueAndType(instruction.args[1])
+        if sym1Type != "bool":
+            raise ReturnException(RetCodes.messageWrongOps, RetCodes.wrongOps)
+        var.type = "bool"
+        var.value = "true" if str(sym1Value) == "false" else "false"
+
+    instructionCnt+=1
 
 
 
