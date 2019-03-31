@@ -10,4 +10,5 @@ WRITE string@\062
 CONCAT GF@counter GF@counter string@a
 JUMP while
 READ LF@blbec string
+false
 LABEL end
