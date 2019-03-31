@@ -1,6 +1,6 @@
 import re
 import sys
-from xml.dom import minidom
+import getopt
 import xml.etree.ElementTree as ET
 
 print("start")
@@ -45,6 +45,8 @@ class OpCodes:
 
 
 class RetCodes:
+    wrongArgs = 10
+
     wrongXMLformat = 31
     otherErrorInXML = 32
     seman = 52
@@ -161,7 +163,6 @@ class Instruction:
         opCode = opCode.upper()
         if opCode not in OpCodes.all:
             raise ReturnException("Neexistujici operacni kod!", RetCodes.otherErrorInXML)
-        print(sys.stderr, opCode)
         self.opCodeType = opCode
         self.args = []
 
@@ -173,7 +174,6 @@ class Argument:
     def __init__(self, typeOfArg, value):
         self.type = typeOfArg
         self.value = value
-        print(sys.stderr, value)
         if typeOfArg == "var":
             frameAndName = self.getFrameAndName(value)
             self.frame = frameAndName[0] #todo poresit pripad None
@@ -210,7 +210,7 @@ class XMLReader:
             raise ReturnException("Spatny nazev korenoveho uzlu", RetCodes.otherErrorInXML)
 
         program = Program()
-        for i in range (1, len(root)):
+        for i in range (1, len(root)+1):
             instrXML = self._GetNodeByOrder(root, i)
             instr = Instruction(instrXML.attrib["opcode"])
             for j in range(1, len(instrXML)+1):
@@ -308,6 +308,14 @@ class Converter:
         else:
             return (argument.value, argument.type)
 
+
+try:
+    opts, args = getopt.getopt(sys.argv[1:], ["help", "source", "input"])
+except getopt.GetoptError:
+    exit()
+
+
+
 program = XMLReader("xml.src").GetProgram()
 stack = Stack()
 frames = Frames()
@@ -321,9 +329,7 @@ for instruction in program.instructions:
         var = frames.FindVar(instruction.args[0].name, instruction.args[0].frame)
         if var is None:
             exit(RetCodes.wrongVariable)
-        valueAndType = stack.Pop()
-        var.value = valueAndType[0]
-        var.type = valueAndType[1]
+        var.value, var.type = stack.Pop()
 
     elif instruction.opCodeType == OpCodes.DEFVAR:
         frames.AddVar(Variable(instruction.args[0].name), instruction.args[0].frame)
@@ -344,6 +350,7 @@ for instruction in program.instructions:
         var = frames.FindVar(instruction.args[0].name, instruction.args[0].frame)
         var.type = "string"
         var.value = chr(int(valueAndType[0]))  #todo dodelat chybu 58
+
 
 
 
