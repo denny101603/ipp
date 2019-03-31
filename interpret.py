@@ -497,10 +497,149 @@ while instructionCnt < len(program.instructions):
         var.type = "bool"
         var.value = "true" if str(sym1Value) == "false" else "false"
 
+    elif instruction.opCodeType == OpCodes.STRI2INT:
+        var = frames.FindVar(instruction.args[0].name, instruction.args[0].frame)
+        sym1Value, sym1Type = Converter.GetValueAndType(instruction.args[1])
+        sym2Value, sym2Type = Converter.GetValueAndType(instruction.args[2])
+        if sym1Type != "string" or sym2Type != "int":
+            raise ReturnException(RetCodes.messageWrongOps, RetCodes.wrongOps)
+        var.type = "string"
+        index = int(sym2Value)
+        if len(str(sym1Value)) > index >= 0:
+            var.value = ord(str(sym1Value)[index])
+        else:
+            raise ReturnException("Index je mimo rozsah!", RetCodes.wrongString)
+
+    elif instruction.opCodeType == OpCodes.READ:
+        var = frames.FindVar(instruction.args[0].name, instruction.args[0].frame)
+        sym1Value, sym1Type = Converter.GetValueAndType(instruction.args[1])
+        if sym1Value == "int":
+            var.type = "int"
+            try:
+                if checker.inputArg == sys.stdin:
+                    var.value = str(int(input()))
+                else:
+                    with open(checker.inputArg) as f:
+                        var.value = str(int(f.read()))
+            except ValueError as e:
+                var.value = "0"
+        elif sym1Value == "string":
+            var.type = "string"
+            try:
+                if checker.inputArg == sys.stdin:
+                    var.value = str(input())
+                else:
+                    with open(checker.inputArg) as f:
+                        var.value = str(f.read())
+            except ValueError as e:
+                var.value = ""
+        else:
+            var.type = "bool"
+            if checker.inputArg == sys.stdin:
+                var.value = "true" if str(input()).lower() == "true" else "false"
+            else:
+                with open(checker.inputArg) as f:
+                    var.value = "true" if str(f.read()).lower() == "true" else "false"
+
+    elif instruction.opCodeType == OpCodes.CONCAT:
+        var = frames.FindVar(instruction.args[0].name, instruction.args[0].frame)
+        sym1Value, sym1Type = Converter.GetValueAndType(instruction.args[1])
+        sym2Value, sym2Type = Converter.GetValueAndType(instruction.args[2])
+        if sym1Type != sym2Type or sym1Type != "string":
+            raise ReturnException(RetCodes.messageWrongOps, RetCodes.wrongOps)
+        var.type = "string"
+        var.value = sym1Value+sym2Value
+
+    elif instruction.opCodeType == OpCodes.STRLEN:
+        var = frames.FindVar(instruction.args[0].name, instruction.args[0].frame)
+        sym1Value, sym1Type = Converter.GetValueAndType(instruction.args[1])
+        if sym1Type != "string":
+            raise ReturnException(RetCodes.messageWrongOps, RetCodes.wrongOps)
+        var.type = "int"
+        var.value = str(len(sym1Value))
+
+    elif instruction.opCodeType == OpCodes.GETCHAR:
+        var = frames.FindVar(instruction.args[0].name, instruction.args[0].frame)
+        sym1Value, sym1Type = Converter.GetValueAndType(instruction.args[1])
+        sym2Value, sym2Type = Converter.GetValueAndType(instruction.args[2])
+        if sym1Type != "string" or sym2Type != "int":
+            raise ReturnException(RetCodes.messageWrongOps, RetCodes.wrongOps)
+        var.type = "string"
+        if len(sym1Value) > int(sym2Value) >= 0:
+            var.value = sym1Value[int(sym2Value)]
+        else:
+            raise ReturnException("Index mimo povoleny rozsah", RetCodes.wrongString)
+
+    elif instruction.opCodeType == OpCodes.SETCHAR:
+        var = frames.FindVar(instruction.args[0].name, instruction.args[0].frame)
+        sym1Value, sym1Type = Converter.GetValueAndType(instruction.args[1])
+        sym2Value, sym2Type = Converter.GetValueAndType(instruction.args[2])
+        if sym1Type != "int" or sym2Type != "string" or var.type != "string":
+            raise ReturnException(RetCodes.messageWrongOps, RetCodes.wrongOps)
+        if len(var.value) > int(sym1Value) >= 0 and sym2Value != "":
+            var.value[int(sym1Value)] = sym2Value[0]
+        else:
+            raise ReturnException("Index mimo povoleny rozsah", RetCodes.wrongString)
+
+    elif instruction.opCodeType == OpCodes.TYPE:
+        var = frames.FindVar(instruction.args[0].name, instruction.args[0].frame)
+        var.type = "string"
+        done = False
+        try:
+            sym1Value, sym1Type = Converter.GetValueAndType(instruction.args[1])
+        except ReturnException as e:
+            if e.retCode == RetCodes.missingValue:
+                var.value = ""
+                done = True
+            else:
+                raise e
+        if not done:
+            var.value = sym1Type
+
+    elif instruction.opCodeType == OpCodes.JUMP:
+        instructionCnt = program.instructions.index(program.GetLabel(instruction.args[0].value))
+
+    elif instruction.opCodeType == OpCodes.JUMPIFEQ:
+        sym1Value, sym1Type = Converter.GetValueAndType(instruction.args[1])
+        sym2Value, sym2Type = Converter.GetValueAndType(instruction.args[2])
+        if sym1Type == sym2Type and sym1Value == sym2Value:
+            instructionCnt = program.instructions.index(program.GetLabel(instruction.args[0].value))
+        else:
+            raise ReturnException(RetCodes.messageWrongOps, RetCodes.wrongOps)
+
+    elif instruction.opCodeType == OpCodes.JUMPIFNEQ:
+        sym1Value, sym1Type = Converter.GetValueAndType(instruction.args[1])
+        sym2Value, sym2Type = Converter.GetValueAndType(instruction.args[2])
+        if sym1Type == sym2Type:
+            if sym1Value != sym2Value:
+                instructionCnt = program.instructions.index(program.GetLabel(instruction.args[0].value))
+        else:
+            raise ReturnException(RetCodes.messageWrongOps, RetCodes.wrongOps)
+
+    elif instruction.opCodeType == OpCodes.JUMPIFNEQ:
+        sym1Value, sym1Type = Converter.GetValueAndType(instruction.args[0])
+        if sym1Type == "int":
+            if 0 <= int(sym1Value) <= 49:
+                exit(int(sym1Value))
+            else:
+                raise ReturnException("Spatna navratova hodnota!", RetCodes.wrongOpValue)
+        else:
+            raise ReturnException(RetCodes.messageWrongOps, RetCodes.wrongOps)
+
+    elif instruction.opCodeType == OpCodes.DPRINT:
+        tupleValueType = Converter.GetValueAndType(instruction.args[0])
+        if tupleValueType[1] == "int":
+            print(sys.stderr, int(tupleValueType[0]), end='')
+        else:
+            print(sys.stderr, str(tupleValueType[0]), end='')
+
+    elif instruction.opCodeType == OpCodes.BREAK:
+        print(sys.stderr, "instructionCnt: " + instructionCnt)
+
+
+    elif instruction.opCodeType in [OpCodes.LABEL]:
+        pass
+
     instructionCnt+=1
 
-
-
-
-
-
+    #globalne chytat i nepovedene otevreni souboru
