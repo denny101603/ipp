@@ -180,7 +180,7 @@ class Argument:
             self.frame = frameAndName[0] #todo poresit pripad None
             self.name = frameAndName[1]
         elif typeOfArg == "string": #todo poresit escapesekvence
-            self.value = self._ConvertString()
+            self._ConvertString()
 
 
     def getFrameAndName(self, value):
@@ -195,11 +195,20 @@ class Argument:
             return None
 
     def _ConvertString(self):
-        regex = re.search(r'''\\([0-9]{3})''', self.value)
+        regex = re.search(r'''#''', self.value)
+        if regex is not None:
+            raise ReturnException("# ve stringu je zakazan", RetCodes.otherErrorInXML)
+        regex = re.search(r'''\s''', self.value)
+        if regex is not None:
+            raise ReturnException("bile znaky ve stringu jsou zakazany", RetCodes.otherErrorInXML)
+        regex = re.search(r'''\\[0-9]{1,2}[^0-9]''', self.value)
+        if regex is not None:
+            raise ReturnException("zpetna lomitka mimo escape ve stringu jsou zakazany", RetCodes.otherErrorInXML)
+
+        regex = re.findall(r'''\\([0-9]{3})''', self.value)
         if regex != None:
-            newChars = []
-            for escape in regex.group(1):
-                value = value.replace("\\"+escape, chr(int(escape)))
+            for escape in regex:
+                self.value = self.value.replace("\\"+str(escape), chr(int(escape)))
 
 
 class Program:
@@ -267,23 +276,9 @@ class Stack:
     def Pop(self):
         if len(self.type) > 0:
             return (self.value.pop(), self.type.pop())
+        else:
+            raise ReturnException("Popnuti z prazdneho zasobniku!", RetCodes.missingValue)
 
-
-#test
-if False:
-    var = Variable("x", 5)
-    frames = Frames()
-    frames.CreateFrame()
-    frames.tf.variables.append(var)
-    try:
-        frames.PushFrame()
-    except ReturnException as e:
-        print(e.retCode)
-    frames.lf.variables.append(Variable("y", 99))
-    print(frames.localFramesStack[len(frames.localFramesStack)-1].variables[0].name)
-    var.name = "zmenaX"
-    print(frames.localFramesStack[len(frames.localFramesStack)-1].variables[0].name)
-    print(frames.localFramesStack[len(frames.localFramesStack)-1].variables[1].name)
 
 class Converter:
     @staticmethod
@@ -293,6 +288,7 @@ class Converter:
             return (var.GetValue(), var.GetType())
         else:
             return (argument.value, argument.type)
+
 
 class CheckArgs:
     def __init__(self):
@@ -328,12 +324,27 @@ class CheckArgs:
 
 checker = CheckArgs()
 checker.Check()
+
+
+class CallStack():
+    def __init__(self):
+        self.stack = []
+
+    def append(self, ins):
+        self.stack.append(ins)
+
+    def pop(self):
+        if len(self.stack) == 0:
+            raise ReturnException("Spatny return", RetCodes.seman)
+        return self.stack.pop()
+
+
 try:
     program = XMLReader(checker.sourceArg).GetProgram()
 
 
     stack = Stack()
-    callStack = [] #todo udelat pro to nejakou tridu osetrujici prazdny pop...
+    callStack = CallStack()
     frames = Frames()
 
     instructionCnt = 0
@@ -360,7 +371,7 @@ try:
                     print(str(tupleValueType[0]), end='')
             printSymbol(Converter.GetValueAndType(instruction.args[0]))
 
-        elif instruction.opCodeType == OpCodes.CHAR:
+        elif instruction.opCodeType == OpCodes.INT2CHAR:
             valueAndType = Converter.GetValueAndType(instruction.args[1])
             if(valueAndType[1] != "int"):
                 exit(RetCodes.wrongOps)
@@ -381,11 +392,11 @@ try:
         elif instruction.opCodeType == OpCodes.POPFRAME:
             frames.PopFrame()
 
-        elif instruction.opCodeType == OpCodes.CALL: #todo poresit nejakou pripravu ramce or not?
+        elif instruction.opCodeType == OpCodes.CALL:
             callStack.append(instructionCnt)
             instructionCnt = program.instructions.index(program.GetLabel(instruction.args[0].value))
 
-        elif instruction.opCodeType == OpCodes.RETURN: #todo dodealt nejaky uklid LF ot not?
+        elif instruction.opCodeType == OpCodes.RETURN:
             instructionCnt = callStack.pop()
 
         elif instruction.opCodeType == OpCodes.ADD:
@@ -580,8 +591,9 @@ try:
         elif instruction.opCodeType == OpCodes.JUMPIFEQ:
             sym1Value, sym1Type = Converter.GetValueAndType(instruction.args[1])
             sym2Value, sym2Type = Converter.GetValueAndType(instruction.args[2])
-            if sym1Type == sym2Type and sym1Value == sym2Value:
-                instructionCnt = program.instructions.index(program.GetLabel(instruction.args[0].value))
+            if sym1Type == sym2Type:
+                if sym1Value == sym2Value:
+                    instructionCnt = program.instructions.index(program.GetLabel(instruction.args[0].value))
             else:
                 raise ReturnException(RetCodes.messageWrongOps, RetCodes.wrongOps)
 
