@@ -179,7 +179,8 @@ class Argument:
             frameAndName = self.getFrameAndName(value)
             self.frame = frameAndName[0] #todo poresit pripad None
             self.name = frameAndName[1]
-        #elif typeOfArg == "string": //todo poresit escapesekvence
+        elif typeOfArg == "string": #todo poresit escapesekvence
+            self.value = self._ConvertString()
 
 
     def getFrameAndName(self, value):
@@ -192,6 +193,13 @@ class Argument:
             return (regex.group(1), regex.group(2))
         else:
             return None
+
+    def _ConvertString(self):
+        regex = re.search(r'''\\([0-9]{3})''', self.value)
+        if regex != None:
+            newChars = []
+            for escape in regex.group(1):
+                value = value.replace("\\"+escape, chr(int(escape)))
 
 
 class Program:
@@ -352,7 +360,7 @@ try:
                     print(str(tupleValueType[0]), end='')
             printSymbol(Converter.GetValueAndType(instruction.args[0]))
 
-        elif instruction.opCodeType == OpCodes.INT2CHAR:
+        elif instruction.opCodeType == OpCodes.CHAR:
             valueAndType = Converter.GetValueAndType(instruction.args[1])
             if(valueAndType[1] != "int"):
                 exit(RetCodes.wrongOps)
