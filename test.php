@@ -30,16 +30,23 @@ $params = array(
     INT_FILE => "./interpret.py"
 );
 
-$output = 0; #jen nejaka inicializace
-
+$okTestsCnt = 0;
+$failTestsCnt = 0;
 
 checkParams();
 $srcFiles = findSrcFiles($params[DIRECTORY], $params[RECURSIVE]);
+generateHTMLhead();
+
 if(sizeof($srcFiles) == 0)
+{
+    generateHTMLend();
     return SUCCESS; //neni co testovat
+}
 generateEmptyFiles($srcFiles);
 
-foreach ($srcFiles as $key => $srcFile) {
+
+foreach ($srcFiles as $key => $srcFile)
+{
     $rc_value = file_get_contents(changeExtension($srcFile, "rc"));
     if($rc_value === false)
         exit(OPEN_INPUT_FILE_FAIL);
@@ -50,15 +57,12 @@ foreach ($srcFiles as $key => $srcFile) {
         $return_value = startParse($params, $srcFile, $tempFileParseOut);
         if($params[PARSE_ONLY])
         {
-            if(compareXML(changeExtension($srcFile, "out"), $tempFileParseOut))
-                echo "vystup testu xml ".$srcFile." je ok\n";
+            $isOutputOk =compareXML(changeExtension($srcFile, "out"), $tempFileParseOut);
+            if($isOutputOk && $rc_value == $return_value)
+                generateHTMLtestSuccess($srcFile);
             else
-                echo "vystup testu xml ".$srcFile." neni ok\n";
+                generateHTMLtestFail($srcFile, $return_value, $rc_value, $isOutputOk);
             unlink($tempFileParseOut);
-            if($rc_value == $return_value)
-                echo "navratova hodnoza testu ".$srcFile." je ok\n";
-            else
-                echo "navratova hodnoza testu ".$srcFile."  neni ok\n";
         }
         else
         {
@@ -66,44 +70,76 @@ foreach ($srcFiles as $key => $srcFile) {
             {
                 unlink($tempFileParseOut);
                 if ($return_value == $rc_value)
-                    echo "navratova hodnoza testu " . $srcFile . " je ok\n";
+                    generateHTMLtestSuccess($srcFile);
                 else
-                    echo "navratova hodnoza testu " . $srcFile . " neni ok\n";
+                    generateHTMLtestFail($srcFile, $return_value, $rc_value, true);
                 break;
             }
             $tempFileIntOut = generateUniqFileName($params[DIRECTORY]);
             $return_value = startInterpret($params, $tempFileParseOut, changeExtension($srcFile, "in"), $tempFileIntOut);
             unlink($tempFileParseOut);
-            if(compareDiff(changeExtension($srcFile, "out"), $tempFileIntOut))
-                echo "vystup testu ".$srcFile." je ok\n";
+            $isOutputOk = compareDiff(changeExtension($srcFile, "out"), $tempFileIntOut);
+            if($isOutputOk && $rc_value == $return_value)
+                generateHTMLtestSuccess($srcFile);
             else
-                echo "vystup testu ".$srcFile." je BAD!!\n";
+                generateHTMLtestFail($srcFile, $return_value, $rc_value, $isOutputOk);
             unlink($tempFileIntOut);
-            if($rc_value == $return_value)
-                echo "navratova hodnoza testu ".$srcFile." je ok\n";
-            else
-                echo "navratova hodnoza testu ".$srcFile." je BAD!!\n";
         }
     }
     else
     {
         $tempFileIntOut = generateUniqFileName($params[DIRECTORY]);
         $return_value = startInterpret($params, $srcFile, changeExtension($srcFile, "in"), $tempFileIntOut);
-        if(compareDiff(changeExtension($srcFile, "out"), $tempFileIntOut))
-            echo "vystup testu ".$srcFile." je ok\n";
+        $isOutputOk = compareDiff(changeExtension($srcFile, "out"), $tempFileIntOut);
+        if($isOutputOk && $rc_value == $return_value) //uspesny test
+            generateHTMLtestSuccess($srcFile);
         else
-            echo "vystup testu ".$srcFile." je BAD!!\n";
+            generateHTMLtestFail($srcFile, $return_value, $rc_value, $isOutputOk);
         unlink($tempFileIntOut);
-        if($rc_value == $return_value)
-            echo "navratova hodnoza testu ".$srcFile." je ok\n";
-        else
-            echo "navratova hodnoza testu ".$srcFile." je BAD!!\n";
     }
 }
-
+generateHTMLend();
 exit(SUCCESS);
 
+function generateHTMLhead()
+{
+    printf("<!doctype html>\n");
+    printf("<html lang=\"en\">\n");
+    printf("<head><meta charset=\"utf-8\"><title>Test.php</title></head>\n");
+    printf("<font size='+2'>Výsledky testů:</font>\n");
+    printf("<body>\n");
+}
 
+function generateHTMLtestSuccess($path)
+{
+    global $okTestsCnt;
+    $okTestsCnt++;
+    printf("<p><b><font color='green' size='+1'>Test <ins>".$path."</ins> byl úspěšný!</font></br></b>\n");
+    printf("<font color='green'>Návratová hodnota i výstup je v pořádku.</font></p>\n");
+}
+
+function generateHTMLtestFail($path, $actualRetCode, $expectedRetCode, $output)
+{
+    global $failTestsCnt;
+    $failTestsCnt++;
+    printf("<p><b><font color='red' size='+1'>Test <ins>".$path."</ins> selhal!</font></br></b>\n");
+    if($output) //vystup v poradku
+        printf("<font color='green'>Výstup je v pořádku.</br></font>\n");
+    else
+        printf("<font color='red'>Výstup je chybný.</br></font>\n");
+
+    if($actualRetCode == $expectedRetCode)
+        printf("<font color='green'>Návratová hodnota je v pořádku.</font></p>\n");
+    else
+        printf("<font color='red'>Návratová hodnota je ".$actualRetCode." ale očekávala se ".$expectedRetCode.".</font></p>\n");
+}
+
+function generateHTMLend()
+{
+    global $okTestsCnt, $failTestsCnt;
+    printf("<font size='+2'>Celkem proběhlo ".($okTestsCnt+$failTestsCnt)." testů, z toho ".$okTestsCnt." úspěšně a ".$failTestsCnt." selhalo.</font>\n");
+    printf("</body></html>\n");
+}
 /**
  * @param $oldPath string cesta k souboru
  * @param $newExt string nova pozadovana pripona souboru
@@ -113,17 +149,6 @@ function changeExtension($oldPath, $newExt)
 {
     return preg_replace("/(.*\.)src/", "$1".$newExt, $oldPath); //ziskani nazvu odpovidajiciho souboru *.newExt
 }
-
-/*
- * @param $filename string musi byt *.src soubor vcetne cesty
- * @return string slozku ve ktere se nachazi filename
- */
-/*
-function getDirectoryFromSrcFile($filename)
-{
-    preg_match("/(.+\/).+\.src/", $filename, $matches);
-    return $matches[1];
-}*/
 
 /**
  * @param $params array: parametry programu - kvuli ziskani nazvu parseru
@@ -255,7 +280,6 @@ function checkParams()
     global $argc;
     $longopts = array("help", "directory:", "recursive", "parse-script:", "int-script:", "parse-only", "int-only");
     $options = getopt("", $longopts);
-    //var_dump($options); smazat
 
     if($argc != count($options)+1)
     {
@@ -315,37 +339,3 @@ function set_params($options)
         $params[INT_ONLY] = true;
 }
 ?>
-//*
-
-echo "pocet argumentu:".$argc."\n";
-$longopts = array("help", "directory:", "recursive", "parse-script:", "int-script:", "parse-only", "int-only");
-$options = getopt("", $longopts);
-var_dump($options);
-
-if($argc != count($options)+1)
-{
-    fprintf(STDERR, "Neco je spatne s argumenty programu!\n");
-    fflush(STDERR);
-    exit(10);
-}
-else if(array_key_exists("help", $options) && count($options) > 1) //--help muze byt vzdy jen samostatne
-{
-    fprintf(STDERR, "help muze byt pouzit jedine samostatne!\n");
-    fflush(STDERR);
-    exit(10);
-}
-else if(array_key_exists("parse-only", $options) && array_key_exists("int-script", $options))
-{
-    fprintf(STDERR, "Argumenty parse-only a int-script se nesmi kobinovat!\n");
-    fflush(STDERR);
-    exit(10);
-}
-else if(array_key_exists("int-only", $options) && array_key_exists("parse-script", $options))
-{
-    fprintf(STDERR, "Argumenty int-only a parse-script se nesmi kobinovat!\n");
-    fflush(STDERR);
-    exit(10);
-}
-echo "vse ok";
-    ?>
-*//
