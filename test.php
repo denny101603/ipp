@@ -1,9 +1,8 @@
 <?php
 /**
- * Created by PhpStorm.
- * User: danbu
- * Date: 10.2.2019
- * Time: 11:45
+ * @file test.php
+ * @author Daniel Bubenicek (xbuben05) FIT VUT v Brne
+ * @date 2.4.2019
  */
 
 define("SUCCESS", 0);
@@ -29,6 +28,8 @@ $params = array(
     PARSE_FILE => "./parse.php",
     INT_FILE => "./interpret.py"
 );
+
+//hlavni telo programu
 
 $okTestsCnt = 0;
 $failTestsCnt = 0;
@@ -100,6 +101,8 @@ foreach ($srcFiles as $key => $srcFile)
 }
 generateHTMLend();
 exit(SUCCESS);
+
+//konec hlavniho tela programu
 
 function generateHTMLhead()
 {
@@ -240,22 +243,23 @@ function generateUniqFileName($directory)
  */
 function compareXML($filename1, $filename2)
 {
-    $jexamxml_command = "java -jar /pub/courses/ipp/jexamxml/jexamxml.jar ".$filename1." ".$filename2." delta.xml /pub/courses/ipp/jexamxml/options"; //todo pořešit funkčnost bez delta.xml
+    global $params;
+    $tempFile = generateUniqFileName($params[DIRECTORY]); //fakt bych chtel vedet, jak se jexamxml spousti bez tohodle souboru...
+    $jexamxml_command = "java -jar /pub/courses/ipp/jexamxml/jexamxml.jar ".$filename1." ".$filename2." ".$tempFile." /pub/courses/ipp/jexamxml/options";
     $output = array(); //jen deklarace promenne
     exec($jexamxml_command, $output);
+    unlink($tempFile);
     if(array_key_exists(2, $output))
     {
         if($output[2] == "Two files are identical")
         {
-            echo "xml jsou stejne\n";
             return true;
         }
         else
         {
-            echo "xml NEjsou stejne!!\n";
             return false;
         }
-    } //todo když se neco posere a nebudou 3 polozky v poli? - reseni navratovy kod
+    }
     else return false;
 }
 
