@@ -351,7 +351,6 @@ class CallStack():
 try:
     program = XMLReader(checker.sourceArg).GetProgram()
 
-
     stack = Stack()
     callStack = CallStack()
     frames = Frames()
