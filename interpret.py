@@ -185,7 +185,7 @@ class Argument:
         self.value = value
         if typeOfArg == "var":
             frameAndName = self.getFrameAndName(value)
-            self.frame = frameAndName[0] #todo poresit pripad None
+            self.frame = frameAndName[0]
             self.name = frameAndName[1]
         elif typeOfArg == "string":
             self._ConvertString()
@@ -235,7 +235,7 @@ class Program:
             if instruction.opCodeType == OpCodes.LABEL:
                 if instruction.args[0].value == name:
                     return instruction
-        raise ReturnException("Neexistujici label!", RetCodes.seman) #todo predelat na statickou semantickou kontrolu
+        raise ReturnException("Neexistujici label!", RetCodes.seman)
 
 
 class XMLReader:
