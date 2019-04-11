@@ -41,7 +41,7 @@ generateHTMLhead();
 if(sizeof($srcFiles) == 0)
 {
     generateHTMLend();
-    return SUCCESS; //neni co testovat
+    exit(SUCCESS); //neni co testovat
 }
 generateEmptyFiles($srcFiles);
 
@@ -50,7 +50,10 @@ foreach ($srcFiles as $key => $srcFile)
 {
     $rc_value = file_get_contents(changeExtension($srcFile, "rc"));
     if($rc_value === false)
+    {
+        generateHTMLend();
         exit(OPEN_INPUT_FILE_FAIL);
+    }
     if(!$params[INT_ONLY])
     {
         $tempFileParseOut = generateUniqFileName($params[DIRECTORY]);
@@ -103,7 +106,9 @@ generateHTMLend();
 exit(SUCCESS);
 
 //konec hlavniho tela programu
-
+/**
+ * na standardní výstup vypíše první část HTML výstupu
+ */
 function generateHTMLhead()
 {
     printf("<!doctype html>\n");
@@ -113,6 +118,10 @@ function generateHTMLhead()
     printf("<body>\n");
 }
 
+/**
+ * @param $path string název testu
+ * na standardní výstup vypíše informaci o úspěšném testu v HTML
+ */
 function generateHTMLtestSuccess($path)
 {
     global $okTestsCnt;
@@ -121,6 +130,13 @@ function generateHTMLtestSuccess($path)
     printf("<font color='green'>Návratová hodnota i výstup je v pořádku.</font></p>\n");
 }
 
+/**
+ * @param $path string název testu
+ * @param $actualRetCode int reálný návratový kod
+ * @param $expectedRetCode int očekávaný návratový kod
+ * @param $output bool jestli byl v pořádku výstup
+ * na standardní výstup vypíše informaci o neúspěšném testu v HTML
+ */
 function generateHTMLtestFail($path, $actualRetCode, $expectedRetCode, $output)
 {
     global $failTestsCnt;
@@ -137,6 +153,9 @@ function generateHTMLtestFail($path, $actualRetCode, $expectedRetCode, $output)
         printf("<font color='red'>Návratová hodnota je ".$actualRetCode." ale očekávala se ".$expectedRetCode.".</font></p>\n");
 }
 
+/**
+ * na standardní výstup vypíše celkové shrnutí úspěšnosti testů (v HTML) a zakončí HTML tagy
+ */
 function generateHTMLend()
 {
     global $okTestsCnt, $failTestsCnt;
@@ -194,13 +213,22 @@ function generateEmptyFiles($srcFiles)
             return;
         if(!file_exists($matches[1]."in")) //pokud neexistuje odpovidajici soubor s priponou in, tak ho vytvorim
             if(false === file_put_contents($matches[1]."in", ""))
+            {
+                generateHTMLend();
                 exit(OPEN_OUTPUT_FILE_FAIL);
+            }
         if(!file_exists($matches[1]."out"))
             if(false === file_put_contents($matches[1]."out", ""))
+            {
+                generateHTMLend();
                 exit(OPEN_OUTPUT_FILE_FAIL);
+            }
         if(!file_exists($matches[1]."rc"))
             if(false === file_put_contents($matches[1]."rc", "0"))
+            {
+                generateHTMLend();
                 exit(OPEN_OUTPUT_FILE_FAIL);
+            }
     }
 }
 
