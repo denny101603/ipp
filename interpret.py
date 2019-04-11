@@ -61,6 +61,7 @@ class RetCodes:
 
 
 class ReturnException(Exception):
+    """Vlastni typ vyjimky pro odchyt."""
     def __init__(self, message, retCode):
         super(ReturnException, self).__init__(message)
         self.retCode = retCode
@@ -160,6 +161,7 @@ class Variable:
 
 
 class Instruction:
+    """Reprezentuje instrukci"""
     def __init__(self, opCode):
         opCode = opCode.upper()
         if opCode not in OpCodes.all:
@@ -172,6 +174,7 @@ class Instruction:
 
 
 class Argument:
+    """Argumenty instrukce"""
     def __init__(self, typeOfArg, value):
         self.type = typeOfArg
         self.value = value
@@ -179,7 +182,7 @@ class Argument:
             frameAndName = self.getFrameAndName(value)
             self.frame = frameAndName[0] #todo poresit pripad None
             self.name = frameAndName[1]
-        elif typeOfArg == "string": #todo poresit escapesekvence
+        elif typeOfArg == "string":
             self._ConvertString()
 
 
@@ -195,6 +198,7 @@ class Argument:
             return None
 
     def _ConvertString(self):
+        """Resi escape sekvence ve stringu"""
         regex = re.search(r'''#''', self.value)
         if regex is not None:
             raise ReturnException("# ve stringu je zakazan", RetCodes.otherErrorInXML)
@@ -212,6 +216,7 @@ class Argument:
 
 
 class Program:
+    """Interni reprezantace celeho programu - instrukci i s argumenty atd"""
     def __init__(self):
         self.instructions = []
 
@@ -227,6 +232,7 @@ class Program:
 
 
 class XMLReader:
+    """Nacte XML reprezentaci programu do interni reprezentace"""
     def __init__(self, file):
         self.tree = ET.parse(file)
 
@@ -265,6 +271,7 @@ class XMLReader:
 
 
 class Stack:
+    """Zasobnik pro instrukce pushs a pops"""
     def __init__(self):
         self.value = []
         self.type = []
@@ -283,6 +290,7 @@ class Stack:
 class Converter:
     @staticmethod
     def GetValueAndType(argument):
+        """Ziska hodnotu a typ ze zadaneho argumentu, at uz je v nem promenna nebo literal"""
         if argument.type == "var":
             var = frames.FindVar(argument.name, argument.frame)
             return (var.GetValue(), var.GetType())
@@ -291,6 +299,7 @@ class Converter:
 
 
 class CheckArgs:
+    """Kontrola argumentu programu"""
     def __init__(self):
         self.sourceArg = None
         self.inputArg = None
@@ -342,7 +351,6 @@ class CallStack():
 try:
     program = XMLReader(checker.sourceArg).GetProgram()
 
-
     stack = Stack()
     callStack = CallStack()
     frames = Frames()
@@ -350,7 +358,7 @@ try:
     instructionCnt = 0
     while instructionCnt < len(program.instructions):
         instruction = program.instructions[instructionCnt]
-        sys.stdout.flush() #todo smazat
+        sys.stdout.flush()
         if instruction.opCodeType == OpCodes.PUSHS:
             stack.Push(instruction.args[0].value, instruction.args[0].type)
 
@@ -626,7 +634,6 @@ try:
         elif instruction.opCodeType == OpCodes.BREAK:
             print("instructionCnt: " + str(instructionCnt), file=sys.stderr)
 
-
         elif instruction.opCodeType in [OpCodes.LABEL]:
             pass
 
@@ -636,3 +643,5 @@ except ReturnException as e:
     exit(e.retCode)
 except IOError:
     exit(RetCodes.FileOpeningError)
+except:
+    exit(RetCodes.seman) #protoze skoro neprovadim semantickou kontrolu dopredu, vetsina chyb bude zpusobena prave
