@@ -118,6 +118,7 @@ class Frames:
             self.lf = self.localFramesStack[-1]
 
     def FindVar(self, name, frame):
+        """Vyhledá proměnnou dle name v daném frame"""
         if(frame.upper() == "LF"):
             if self.lf is None:
                 raise ReturnException(RetCodes.messageFrame, RetCodes.wrongFrame)
@@ -130,6 +131,7 @@ class Frames:
             return self.gf.FindVarByName(name)
 
     def AddVar(self, var, frame):
+        """přidá proměnnou var do daného frame"""
         if (frame.upper() == "LF"):
             if self.lf is None:
                 raise ReturnException(RetCodes.messageFrame, RetCodes.wrongFrame)
@@ -150,11 +152,13 @@ class Variable:
         self.value = None
 
     def GetValue(self):
+        """Vraci hodnotu promenne"""
         if self.value is None:
             raise ReturnException("Pristup k neinicializovane promenne", RetCodes.missingValue)
         return self.value
 
     def GetType(self):
+        """Vraci typ promenne"""
         if self.type is None:
             raise ReturnException("Pristup k neinicializovane promenne", RetCodes.missingValue)
         return self.type
@@ -170,6 +174,7 @@ class Instruction:
         self.args = []
 
     def AddArg(self, arg):
+        """Prida argument k instrukci"""
         self.args.append(arg)
 
 
@@ -221,9 +226,11 @@ class Program:
         self.instructions = []
 
     def AddInstruction(self, instruction):
+        """Prida instrukci do programu"""
         self.instructions.append(instruction)
 
     def GetLabel(self, name):
+        """Vrati instrukci typu LABEL vyhledanou podle nazvu navesti"""
         for instruction in self.instructions:
             if instruction.opCodeType == OpCodes.LABEL:
                 if instruction.args[0].value == name:
@@ -237,6 +244,7 @@ class XMLReader:
         self.tree = ET.parse(file)
 
     def GetProgram(self):
+        """Nacte XML reprezentaci programu do vnitrni reprezentace"""
         root = self.tree.getroot()
         if root.tag != "program":
             raise ReturnException("Spatny nazev korenoveho uzlu", RetCodes.otherErrorInXML)
@@ -252,6 +260,7 @@ class XMLReader:
         return program
 
     def _GetNodeByTag(self, parent, tagName):
+        """Privatni pomocna metoda pro vyhledani uzlu podle nazvu tagu"""
         try:
             for child in parent:
                 if child.tag == tagName:
@@ -261,6 +270,7 @@ class XMLReader:
         raise ReturnException("Spatny format XML", RetCodes.otherErrorInXML)
 
     def _GetNodeByOrder(self, parent, order):
+        """Privatni pomocna metoda ktera zajistuje ziskani instrukci ve spravnem poradi"""
         try:
             for instr in parent:
                 if instr.attrib["order"] == str(order):
@@ -305,6 +315,7 @@ class CheckArgs:
         self.inputArg = None
 
     def Check(self):
+        """Zkontroluje argumenty programu a nastavi zdroje dat"""
         try:
             opts, args = getopt.getopt(sys.argv[1:], "", ["help", "source=", "input="])
         except getopt.GetoptError:
@@ -331,11 +342,11 @@ class CheckArgs:
             self.inputArg = sys.stdin
 
 
-checker = CheckArgs()
-checker.Check()
 
 
-class CallStack():
+
+class CallStack:
+    """Zásobník volani fci pro navraty"""
     def __init__(self):
         self.stack = []
 
@@ -347,6 +358,9 @@ class CallStack():
             raise ReturnException("Spatny return", RetCodes.seman)
         return self.stack.pop()
 
+#zacatek hlavniho tela programu
+checker = CheckArgs()
+checker.Check()
 
 try:
     program = XMLReader(checker.sourceArg).GetProgram()
@@ -385,7 +399,7 @@ try:
                 exit(RetCodes.wrongOps)
             var = frames.FindVar(instruction.args[0].name, instruction.args[0].frame)
             var.type = "string"
-            var.value = chr(int(valueAndType[0]))  #todo dodelat chybu 58
+            var.value = chr(int(valueAndType[0]))
 
         elif instruction.opCodeType == OpCodes.MOVE:
             var = frames.FindVar(instruction.args[0].name, instruction.args[0].frame)
@@ -644,4 +658,4 @@ except ReturnException as e:
 except IOError:
     exit(RetCodes.FileOpeningError)
 except:
-    exit(RetCodes.seman) #protoze skoro neprovadim semantickou kontrolu dopredu, vetsina chyb bude zpusobena prave
+    exit(RetCodes.seman) #protoze skoro neprovadim semantickou kontrolu dopredu, vetsina chyb bude zpusobena prave tim
